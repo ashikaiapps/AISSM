@@ -1,0 +1,56 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "value": "centralindia"
+    },
+    "workspaceName": {
+      "value": "wksp-ashik-avd-centralindia"
+    },
+    "arbeetHostPoolName": {
+      "value": "hp-arbeet-dev"
+    },
+    "nirajHostPoolName": {
+      "value": "hp-niraj-gpu"
+    },
+    "arbeetAppGroupName": {
+      "value": "dag-arbeet-dev"
+    },
+    "nirajAppGroupName": {
+      "value": "dag-niraj-gpu"
+    },
+    "scalingPlanName": {
+      "value": "sp-avd-personal-costsafe"
+    },
+    "avdTimeZone": {
+      "value": "Nepal Standard Time"
+    },
+    "arbeetUserObjectId": {
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    "nirajUserObjectId": {
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    "avdPowerServicePrincipalObjectId": {
+      "value": "00000000-0000-0000-0000-000000000000"
+    },
+    "arbeetSessionHostVmNames": {
+      "value": [
+        "vm-arbeet-d4psv5-01"
+      ]
+    },
+    "nirajSessionHostVmNames": {
+      "value": [
+        "vm-niraj-nc8ast4v3-01"
+      ]
+    },
+    "tags": {
+      "value": {
+        "workload": "avd",
+        "env": "prod",
+        "costProfile": "optimized"
+      }
+    }
+  }
+}
