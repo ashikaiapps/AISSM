@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import crypto from 'crypto';
+import path from 'path';
+import fs from 'fs';
 import { eq, desc } from 'drizzle-orm';
 import { db, schema } from '../db/index.js';
 import { getAdapter } from '../adapters/base.js';
@@ -9,17 +11,48 @@ import type { Platform, OAuthTokens, ConnectedAccount } from '@socialkeys/shared
 export const postRoutes = Router();
 
 const DEFAULT_USER_ID = 'default-user';
+const UPLOAD_DIR = path.resolve(process.cwd(), 'data', 'uploads');
 
 // Create and publish a post
 postRoutes.post('/', async (req, res) => {
   try {
-    const { caption, accountIds } = req.body as { caption: string; accountIds: string[] };
+    const { caption, accountIds, mediaIds } = req.body as {
+      caption: string;
+      accountIds: string[];
+      mediaIds?: string[];
+    };
 
     if (!caption || !accountIds || !Array.isArray(accountIds) || accountIds.length === 0) {
       return res.status(400).json({ error: 'caption and accountIds[] are required' });
     }
 
     const postId = crypto.randomUUID();
+
+    // Resolve media files from IDs
+    const mediaFiles: Array<{ id: string; filePath: string; filename: string; mimeType: string; sizeBytes: number }> = [];
+    if (mediaIds && mediaIds.length > 0) {
+      const uploadFiles = fs.existsSync(UPLOAD_DIR) ? fs.readdirSync(UPLOAD_DIR) : [];
+      for (const mediaId of mediaIds) {
+        const match = uploadFiles.find((f) => f.startsWith(mediaId));
+        if (match) {
+          const filePath = path.join(UPLOAD_DIR, match);
+          const stat = fs.statSync(filePath);
+          const ext = path.extname(match).toLowerCase();
+          const mimeMap: Record<string, string> = {
+            '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+            '.gif': 'image/gif', '.webp': 'image/webp', '.mp4': 'video/mp4',
+            '.mov': 'video/quicktime', '.webm': 'video/webm',
+          };
+          mediaFiles.push({
+            id: mediaId,
+            filePath,
+            filename: match,
+            mimeType: mimeMap[ext] || 'application/octet-stream',
+            sizeBytes: stat.size,
+          });
+        }
+      }
+    }
 
     // Create the post record
     await db.insert(schema.posts).values({
@@ -28,6 +61,23 @@ postRoutes.post('/', async (req, res) => {
       caption,
       status: 'publishing',
     });
+
+    // Store media references
+    for (let i = 0; i < mediaFiles.length; i++) {
+      const m = mediaFiles[i];
+      await db.insert(schema.postMedia).values({
+        id: crypto.randomUUID(),
+        postId,
+        filePath: m.filePath,
+        originalFilename: m.filename,
+        mimeType: m.mimeType,
+        fileSizeBytes: m.sizeBytes,
+        sortOrder: i,
+      });
+    }
+
+    // Build mediaUrls for adapters (local file paths)
+    const mediaUrls = mediaFiles.map((m) => m.filePath);
 
     const results: Array<{ accountId: string; platform: string; success: boolean; error?: string; platformPostId?: string }> = [];
 
@@ -82,7 +132,8 @@ postRoutes.post('/', async (req, res) => {
         const adapter = getAdapter(account.platform as Platform);
 
         // Validate content
-        const validation = adapter.validateContent({ caption });
+        const contentForValidation = mediaUrls.length > 0 ? { caption, mediaUrls } : { caption };
+        const validation = adapter.validateContent(contentForValidation);
         if (!validation.valid) {
           await db.insert(schema.postAccounts).values({
             id: postAccountId,
@@ -95,8 +146,9 @@ postRoutes.post('/', async (req, res) => {
           continue;
         }
 
-        // Publish
-        const result = await adapter.publishPost({ caption }, connectedAccount, tokens);
+        // Publish (include media file paths)
+        const content = mediaUrls.length > 0 ? { caption, mediaUrls } : { caption };
+        const result = await adapter.publishPost(content, connectedAccount, tokens);
 
         await db.insert(schema.postAccounts).values({
           id: postAccountId,
