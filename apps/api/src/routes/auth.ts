@@ -8,7 +8,7 @@ import { db, schema } from '../db/index.js';
 import { env } from '../config/env.js';
 
 // Platforms that support multi-account discovery
-const MULTI_ACCOUNT_PLATFORMS: Platform[] = ['facebook', 'instagram'];
+const MULTI_ACCOUNT_PLATFORMS: Platform[] = ['linkedin', 'facebook', 'instagram'];
 
 export const authRoutes = Router();
 

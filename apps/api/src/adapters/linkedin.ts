@@ -7,6 +7,11 @@ const AUTHORIZE_URL = 'https://www.linkedin.com/oauth/v2/authorization';
 const TOKEN_URL = 'https://www.linkedin.com/oauth/v2/accessToken';
 const USERINFO_URL = 'https://api.linkedin.com/v2/userinfo';
 const POSTS_URL = 'https://api.linkedin.com/rest/posts';
+const ORG_ACLS_URL = 'https://api.linkedin.com/rest/organizationAcls';
+const ORG_LOOKUP_URL = 'https://api.linkedin.com/rest/organizations';
+
+// Personal posting + organization admin discovery + org posting
+const SCOPES = 'openid profile w_member_social r_organization_admin w_organization_social';
 
 export const linkedinAdapter: PlatformAdapter = {
   platform: 'linkedin',
@@ -18,13 +23,12 @@ export const linkedinAdapter: PlatformAdapter = {
       client_id: env.LINKEDIN_CLIENT_ID,
       redirect_uri: env.LINKEDIN_REDIRECT_URI,
       state,
-      scope: 'openid profile w_member_social',
+      scope: SCOPES,
     });
     return `${AUTHORIZE_URL}?${params.toString()}`;
   },
 
   async exchangeCode(code: string): Promise<{ account: ConnectedAccount; tokens: OAuthTokens }> {
-    // Exchange authorization code for tokens
     const tokenRes = await fetch(TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -46,12 +50,11 @@ export const linkedinAdapter: PlatformAdapter = {
       access_token: string;
       expires_in: number;
       refresh_token?: string;
-      refresh_token_expires_in?: number;
       scope: string;
       token_type: string;
     };
 
-    // Fetch user profile via OpenID Connect userinfo endpoint
+    // Fetch personal profile
     const profileRes = await fetch(USERINFO_URL, {
       headers: { Authorization: `Bearer ${tokenData.access_token}` },
     });
@@ -82,11 +85,99 @@ export const linkedinAdapter: PlatformAdapter = {
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       tokenType: tokenData.token_type || 'Bearer',
-      scopes: tokenData.scope || 'openid profile w_member_social',
+      scopes: tokenData.scope || SCOPES,
       expiresAt: new Date(now.getTime() + tokenData.expires_in * 1000),
     };
 
     return { account, tokens };
+  },
+
+  // Discover personal profile + company pages the user administers
+  async listAvailableAccounts(tokens: OAuthTokens): Promise<ConnectedAccount[]> {
+    const accounts: ConnectedAccount[] = [];
+
+    // 1. Personal profile (always available with w_member_social)
+    try {
+      const profileRes = await fetch(USERINFO_URL, {
+        headers: { Authorization: `Bearer ${tokens.accessToken}` },
+      });
+      if (profileRes.ok) {
+        const profile = (await profileRes.json()) as { sub: string; name: string; picture?: string };
+        accounts.push({
+          id: crypto.randomUUID(),
+          platform: 'linkedin',
+          platformAccountId: profile.sub,
+          accountName: `${profile.name} (Personal)`,
+          avatarUrl: profile.picture,
+          accountType: 'profile',
+          isActive: true,
+        });
+      }
+    } catch {
+      // Personal profile fetch failed — continue with org discovery
+    }
+
+    // 2. Organization pages (requires r_organization_admin + w_organization_social)
+    try {
+      const aclRes = await fetch(
+        `${ORG_ACLS_URL}?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED`,
+        {
+          headers: {
+            Authorization: `Bearer ${tokens.accessToken}`,
+            'X-Restli-Protocol-Version': '2.0.0',
+            'LinkedIn-Version': '202401',
+          },
+        },
+      );
+
+      if (aclRes.ok) {
+        const aclData = (await aclRes.json()) as {
+          elements: Array<{ organization: string }>;
+        };
+
+        // Fetch details for each organization
+        for (const element of aclData.elements || []) {
+          const orgUrn = element.organization; // urn:li:organization:123456
+          const orgId = orgUrn.split(':').pop();
+          if (!orgId) continue;
+
+          try {
+            const orgRes = await fetch(`${ORG_LOOKUP_URL}/${orgId}`, {
+              headers: {
+                Authorization: `Bearer ${tokens.accessToken}`,
+                'X-Restli-Protocol-Version': '2.0.0',
+                'LinkedIn-Version': '202401',
+              },
+            });
+
+            if (orgRes.ok) {
+              const org = (await orgRes.json()) as {
+                id: number;
+                localizedName: string;
+                vanityName?: string;
+                logoV2?: { original?: string };
+              };
+              accounts.push({
+                id: crypto.randomUUID(),
+                platform: 'linkedin',
+                platformAccountId: String(org.id),
+                accountName: `${org.localizedName} (Company Page)`,
+                handle: org.vanityName,
+                accountType: 'page',
+                isActive: true,
+              });
+            }
+          } catch {
+            // Skip org if lookup fails
+          }
+        }
+      }
+    } catch {
+      // Org discovery failed — user may not have Marketing API access
+      // Personal profile is still available
+    }
+
+    return accounts;
   },
 
   async refreshToken(refreshToken: string): Promise<OAuthTokens> {
@@ -110,7 +201,6 @@ export const linkedinAdapter: PlatformAdapter = {
       access_token: string;
       expires_in: number;
       refresh_token?: string;
-      refresh_token_expires_in?: number;
       scope: string;
       token_type: string;
     };
@@ -120,7 +210,7 @@ export const linkedinAdapter: PlatformAdapter = {
       accessToken: data.access_token,
       refreshToken: data.refresh_token ?? refreshToken,
       tokenType: data.token_type || 'Bearer',
-      scopes: data.scope || 'openid profile w_member_social',
+      scopes: data.scope || SCOPES,
       expiresAt: new Date(now.getTime() + data.expires_in * 1000),
     };
   },
@@ -130,9 +220,13 @@ export const linkedinAdapter: PlatformAdapter = {
     account: ConnectedAccount,
     tokens: OAuthTokens,
   ): Promise<PublishResult> {
-    // TODO: Add image upload support via /rest/images?action=initializeUpload
+    // Use urn:li:organization for company pages, urn:li:person for personal
+    const author = account.accountType === 'page'
+      ? `urn:li:organization:${account.platformAccountId}`
+      : `urn:li:person:${account.platformAccountId}`;
+
     const body = {
-      author: `urn:li:person:${account.platformAccountId}`,
+      author,
       commentary: content.caption,
       visibility: 'PUBLIC',
       distribution: { feedDistribution: 'MAIN_FEED' },
@@ -159,7 +253,6 @@ export const linkedinAdapter: PlatformAdapter = {
       };
     }
 
-    // LinkedIn returns the post URN in the x-restli-id header
     const postUrn = res.headers.get('x-restli-id') || undefined;
     return {
       success: true,

@@ -19,9 +19,10 @@ const PLATFORMS: Platform[] = [
     icon: '💼',
     color: 'bg-blue-600',
     bgLight: 'bg-blue-50 border-blue-200',
-    description: 'Post updates to your LinkedIn profile',
-    permissions: ['Create posts on your behalf', 'Read your basic profile'],
-    approvalNote: undefined,
+    description: 'Post to your personal profile and/or Company Pages',
+    permissions: ['Create posts on your personal feed', 'Post to Company Pages you admin', 'Read your basic profile'],
+    prerequisites: 'Company Page posting requires Marketing Developer Platform approval.',
+    approvalNote: 'Personal profile posting works immediately.',
   },
   {
     id: 'facebook',
