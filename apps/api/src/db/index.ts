@@ -6,7 +6,7 @@ import * as schema from './schema.js';
 import { resolve, dirname } from 'path';
 import { mkdirSync } from 'fs';
 
-const dbPath = resolve(process.cwd(), '../../', env.DATABASE_URL);
+const dbPath = resolve(process.cwd(), env.DATABASE_URL);
 mkdirSync(dirname(dbPath), { recursive: true });
 
 const sqlite = new Database(dbPath);
