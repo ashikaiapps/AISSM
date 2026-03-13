@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { MediaDropZone, type MediaFile } from '../components/MediaDropZone.js';
+import { PostPreview } from '../components/PostPreview.js';
 
 interface Account {
   id: string;
@@ -31,6 +32,7 @@ export function ComposerPage() {
   const [selectedAccountIds, setSelectedAccountIds] = useState<Set<string>>(new Set());
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showPreview, setShowPreview] = useState(true);
 
   useEffect(() => {
     fetch('/api/v1/accounts')
@@ -122,7 +124,7 @@ export function ComposerPage() {
   }, {});
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-6xl">
       <h2 className="text-2xl font-bold mb-6">New Post</h2>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -159,6 +161,25 @@ export function ComposerPage() {
               ))}
             </div>
           )}
+
+          {/* Preview toggle + previews */}
+          <div>
+            <button
+              onClick={() => setShowPreview(!showPreview)}
+              className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-indigo-600 transition mb-3"
+            >
+              <span className={`transform transition ${showPreview ? 'rotate-90' : ''}`}>▶</span>
+              👁️ Post Preview
+              {showPreview ? ' (hide)' : ' (show)'}
+            </button>
+            {showPreview && (
+              <PostPreview
+                caption={caption}
+                mediaFiles={mediaFiles}
+                selectedAccounts={accounts.filter(a => selectedAccountIds.has(a.id))}
+              />
+            )}
+          </div>
         </div>
 
         {/* Account selector + publish */}
