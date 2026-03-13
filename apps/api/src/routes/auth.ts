@@ -3,8 +3,12 @@ import crypto from 'crypto';
 import type { Platform } from '@socialkeys/shared';
 import { getAdapter } from '../adapters/base.js';
 import { encrypt } from '../services/crypto.js';
+import { setTempAuth } from '../services/temp-auth-store.js';
 import { db, schema } from '../db/index.js';
 import { env } from '../config/env.js';
+
+// Platforms that support multi-account discovery
+const MULTI_ACCOUNT_PLATFORMS: Platform[] = ['facebook', 'instagram'];
 
 export const authRoutes = Router();
 
@@ -63,11 +67,25 @@ authRoutes.get('/callback/:platform', async (req, res) => {
     const adapter = getAdapter(platform);
     const { account, tokens } = await adapter.exchangeCode(code);
 
+    // Multi-account platforms: redirect to discovery flow instead of auto-storing
+    if (adapter.listAvailableAccounts && MULTI_ACCOUNT_PLATFORMS.includes(platform)) {
+      const tempId = crypto.randomUUID();
+      setTempAuth(tempId, {
+        platform,
+        tokens,
+        discoveredAccounts: [],
+        createdAt: Date.now(),
+      });
+      return res.redirect(
+        `${env.APP_URL}/accounts?setup=${platform}&tempId=${tempId}`,
+      );
+    }
+
+    // Single-account platforms: auto-store and redirect
     const userId = 'default-user';
     const accountId = crypto.randomUUID();
     const tokenId = crypto.randomUUID();
 
-    // Store social account
     await db.insert(schema.socialAccounts).values({
       id: accountId,
       userId,
@@ -81,7 +99,6 @@ authRoutes.get('/callback/:platform', async (req, res) => {
       metadata: '{}',
     });
 
-    // Store encrypted OAuth tokens
     await db.insert(schema.oauthTokens).values({
       id: tokenId,
       socialAccountId: accountId,

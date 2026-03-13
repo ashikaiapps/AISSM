@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { PlatformSetupModal } from '../components/PlatformSetupModal';
+import { ConnectWizard } from '../components/ConnectWizard';
 
 const PLATFORMS = [
   { id: 'linkedin', name: 'LinkedIn', icon: '💼', color: 'bg-blue-600' },
@@ -20,6 +22,10 @@ interface Account {
 export function AccountsPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [showWizard, setShowWizard] = useState(false);
+
+  // Multi-account setup modal state (for Facebook/Instagram after OAuth)
+  const [setupModal, setSetupModal] = useState<{ platform: string; tempId: string } | null>(null);
 
   const loadAccounts = () => {
     fetch('/api/v1/accounts')
@@ -31,11 +37,17 @@ export function AccountsPage() {
   useEffect(() => {
     loadAccounts();
 
-    // Handle OAuth callback query params
     const params = new URLSearchParams(window.location.search);
     const connected = params.get('connected');
     const error = params.get('error');
-    if (connected) {
+    const setupPlatform = params.get('setup');
+    const tempId = params.get('tempId');
+
+    if (setupPlatform && tempId) {
+      // Multi-account selection needed (Facebook/Instagram)
+      setSetupModal({ platform: setupPlatform, tempId });
+      window.history.replaceState({}, '', '/accounts');
+    } else if (connected) {
       setToast({ type: 'success', message: `✅ ${connected} account connected successfully!` });
       window.history.replaceState({}, '', '/accounts');
     } else if (error) {
@@ -67,9 +79,30 @@ export function AccountsPage() {
     }
   };
 
+  const connectedPlatforms = new Set(accounts.map(a => a.platform));
+
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-6">Connected Accounts</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold">Connected Accounts</h2>
+        <button
+          onClick={() => setShowWizard(true)}
+          className="bg-indigo-600 text-white text-sm font-semibold py-2.5 px-5 rounded-xl hover:bg-indigo-700 transition flex items-center gap-2"
+        >
+          <span>🔑</span> Setup Wizard
+        </button>
+      </div>
+
+      {/* Quick stats bar */}
+      <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+          {accounts.length} account{accounts.length !== 1 ? 's' : ''} connected
+        </div>
+        <div className="text-sm text-gray-400">
+          {5 - connectedPlatforms.size} platform{5 - connectedPlatforms.size !== 1 ? 's' : ''} remaining
+        </div>
+      </div>
 
       {toast && (
         <div className={`mb-4 px-4 py-3 rounded-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-50 text-green-800 border border-green-200' : 'bg-red-50 text-red-800 border border-red-200'}`}>
@@ -84,21 +117,30 @@ export function AccountsPage() {
             <div key={platform.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
               <div className="flex items-center gap-3 mb-4">
                 <span className="text-2xl">{platform.icon}</span>
-                <h3 className="text-lg font-semibold">{platform.name}</h3>
+                <div>
+                  <h3 className="text-lg font-semibold">{platform.name}</h3>
+                  {connected.length > 0 && (
+                    <span className="text-xs text-green-600 font-medium">{connected.length} connected</span>
+                  )}
+                </div>
               </div>
 
               {connected.length > 0 ? (
                 <div className="space-y-2 mb-4">
                   {connected.map(acc => (
                     <div key={acc.id} className="flex items-center justify-between px-3 py-2 bg-green-50 rounded-lg group">
-                      <div className="flex items-center gap-2">
-                        <span className="w-2 h-2 rounded-full bg-green-500"></span>
-                        <span className="text-sm font-medium">{acc.accountName}</span>
-                        {acc.handle && <span className="text-xs text-gray-400">@{acc.handle}</span>}
+                      <div className="flex items-center gap-2 min-w-0">
+                        {acc.avatarUrl ? (
+                          <img src={acc.avatarUrl} alt="" className="w-6 h-6 rounded-full" />
+                        ) : (
+                          <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>
+                        )}
+                        <span className="text-sm font-medium truncate">{acc.accountName}</span>
+                        {acc.handle && <span className="text-xs text-gray-400 truncate">@{acc.handle}</span>}
                       </div>
                       <button
                         onClick={() => disconnectAccount(acc.id)}
-                        className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition"
+                        className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition flex-shrink-0 ml-2"
                         title="Disconnect"
                       >
                         ✕
@@ -114,12 +156,37 @@ export function AccountsPage() {
                 onClick={() => connectAccount(platform.id)}
                 className={`w-full text-white text-sm font-medium py-2 px-4 rounded-lg ${platform.color} hover:opacity-90 transition`}
               >
-                {connected.length > 0 ? '+ Add Another Account' : 'Connect'}
+                {connected.length > 0 ? '+ Add Another' : 'Connect'}
               </button>
             </div>
           );
         })}
       </div>
+
+      {/* Connect Wizard Modal */}
+      {showWizard && (
+        <ConnectWizard
+          connectedPlatforms={connectedPlatforms}
+          onClose={() => setShowWizard(false)}
+        />
+      )}
+
+      {/* Platform Setup Modal (multi-account selection for Facebook/Instagram) */}
+      {setupModal && (
+        <PlatformSetupModal
+          platform={setupModal.platform}
+          tempId={setupModal.tempId}
+          onClose={() => {
+            setSetupModal(null);
+            loadAccounts();
+          }}
+          onConnected={(count) => {
+            setSetupModal(null);
+            setToast({ type: 'success', message: `✅ ${count} ${setupModal.platform} account${count !== 1 ? 's' : ''} connected!` });
+            loadAccounts();
+          }}
+        />
+      )}
     </div>
   );
 }
