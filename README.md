@@ -7,6 +7,9 @@
 - **5 Platform Support** — Real OAuth 2.0 authentication and real posting APIs for LinkedIn, Facebook Pages, Instagram (images + Reels), YouTube Shorts, and TikTok
 - **Multi-Account** — Connect multiple accounts per platform (e.g., multiple Instagram business accounts)
 - **Cross-Post** — Write one caption, select target accounts, publish to all simultaneously
+- **Drag & Drop Media** — Upload images and videos with drag & drop, reorderable thumbnails, platform-aware validation
+- **Live Post Preview** — See exactly how your post will look on each platform before publishing (LinkedIn, Facebook, Instagram, YouTube Shorts, TikTok)
+- **Electron Desktop App** — Runs as a native desktop app with embedded API server — stable callback URLs forever
 - **Encrypted Token Storage** — AES-256-GCM encryption for all OAuth tokens at rest
 - **Extensible Adapter Pattern** — Add new platforms by implementing a single `PlatformAdapter` interface
 - **Modern Stack** — TypeScript everywhere, React + Tailwind v4 frontend, Express API, SQLite + Drizzle ORM
@@ -21,15 +24,19 @@ socialkeys.ai/
 │   │   │   ├── adapters/     # Platform adapters (linkedin, facebook, instagram, youtube, tiktok)
 │   │   │   ├── config/       # Environment config + validation
 │   │   │   ├── db/           # Drizzle schema, migrations, SQLite connection
-│   │   │   ├── routes/       # Auth (OAuth), accounts, posts
+│   │   │   ├── routes/       # Auth (OAuth), accounts, posts, media, settings
 │   │   │   └── services/     # Token encryption (AES-256-GCM)
 │   │   └── drizzle/          # Generated SQL migrations
-│   └── web/          # React + Vite + Tailwind v4 (port 5173)
-│       └── src/
-│           └── pages/        # Dashboard, Accounts, Composer
+│   ├── web/          # React + Vite + Tailwind v4 (port 5173)
+│   │   └── src/
+│   │       ├── components/   # MediaDropZone, PostPreview, ConnectWizard
+│   │       └── pages/        # Dashboard, Setup, Accounts, Composer
+│   └── desktop/      # Electron desktop app
+│       ├── src/              # Main process + preload
+│       └── scripts/          # Dev + build scripts
 ├── packages/
 │   └── shared/       # Shared TypeScript types (Platform, PostContent, etc.)
-├── data/             # SQLite database (gitignored)
+├── data/             # SQLite database + uploads (gitignored)
 └── docs/             # Spec files and implementation plans
 ```
 
@@ -79,6 +86,30 @@ cd apps/web && npx vite
 ```
 
 Open **http://localhost:5173** — the Vite dev server proxies `/api/*` and `/auth/*` to the Express API.
+
+### 5. (Optional) Run as Electron Desktop App
+
+```bash
+# Make sure API + Web are running first (step 4), then:
+cd apps/desktop
+node scripts/build-main.js
+npx electron .
+```
+
+Or use the all-in-one command from the project root:
+```bash
+npm run dev:desktop
+```
+
+### Building a Distributable
+
+```bash
+# Full build: compile API + web + Electron, then package
+npm run dist:desktop:win   # Windows (.exe installer + portable)
+# npm run dist:desktop       # Current platform
+```
+
+The packaged app bundles everything — API server, web frontend, SQLite — into a single installable. Your team just runs the installer, no Node.js required.
 
 ## Platform Status
 
@@ -138,20 +169,22 @@ The `docs/` folder contains the planning and specification documents generated d
 - **API**: Express 5
 - **Database**: SQLite (via better-sqlite3) + Drizzle ORM
 - **Frontend**: React 19 + Vite 6 + Tailwind CSS v4
+- **Desktop**: Electron 35 with electron-builder
 - **Auth**: OAuth 2.0 per platform (no third-party auth libraries)
 - **Security**: AES-256-GCM token encryption, CSRF state tokens
 - **Monorepo**: npm workspaces
 
 ## Future Roadmap
 
-- [ ] Media upload pipeline (images + video with ffmpeg transcoding)
+- [x] Drag & drop media upload
+- [x] Live post preview per platform
+- [x] Electron desktop app
 - [ ] Post scheduling engine
 - [ ] AI content generation (GitHub Copilot SDK + Claude Opus 4.6)
 - [ ] AI campaign planner
 - [ ] Analytics dashboard
 - [ ] Image generation (Azure DALL-E 3)
 - [ ] Video generation (Azure Sora 2)
-- [ ] Electron desktop app
 
 ## License
 
