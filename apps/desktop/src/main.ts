@@ -73,7 +73,9 @@ async function startApiServer(): Promise<void> {
   if (IS_DEV) {
     // Dev mode: use tsx to run the API from source
     const apiEntry = path.join(projectRoot, 'apps', 'api', 'src', 'server.ts');
+    const envFilePath = path.join(projectRoot, '.env');
     console.log(`Starting API server (dev): ${apiEntry}`);
+    console.log(`Using .env: ${envFilePath}`);
 
     apiProcess = spawn('npx', ['tsx', apiEntry], {
       cwd: path.join(projectRoot, 'apps', 'api'),
@@ -81,6 +83,7 @@ async function startApiServer(): Promise<void> {
         ...process.env,
         NODE_ENV: 'development',
         PORT: String(API_PORT),
+        ENV_FILE_PATH: envFilePath,
       },
       shell: true,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -105,6 +108,8 @@ async function startApiServer(): Promise<void> {
     }
 
     console.log(`Starting API server (prod): ${apiEntry}`);
+    console.log(`Data dir: ${dataDir}`);
+    console.log(`Using .env: ${envFile}`);
 
     apiProcess = spawn(process.execPath.replace('electron', 'node'), [apiEntry], {
       cwd: apiCwd,
@@ -113,6 +118,7 @@ async function startApiServer(): Promise<void> {
         NODE_ENV: 'production',
         PORT: String(API_PORT),
         DATABASE_URL: path.join(dataDir, 'socialkeys.sqlite'),
+        ENV_FILE_PATH: envFile,
         NODE_PATH: path.join(process.resourcesPath!, 'api-modules'),
       },
       stdio: ['ignore', 'pipe', 'pipe'],

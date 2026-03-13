@@ -1,11 +1,8 @@
 import { Router } from 'express';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
-import { resolve } from 'path';
-import { env } from '../config/env.js';
+import { env, ENV_FILE_PATH } from '../config/env.js';
 
 export const settingsRoutes = Router();
-
-const ENV_FILE_PATH = resolve(process.cwd(), '.env');
 
 // ---------------------------------------------------------------------------
 // Platform → env-var mapping

@@ -1,7 +1,73 @@
 import { config } from 'dotenv';
-import { resolve } from 'path';
+import { resolve, dirname } from 'path';
+import { randomBytes } from 'crypto';
+import { readFileSync, writeFileSync, existsSync } from 'fs';
 
-config({ path: resolve(process.cwd(), '.env') });
+// Find .env by walking up from CWD to the monorepo root
+// Prefers directories that also contain .env.example or a workspace package.json
+function findEnvFile(): string {
+  let dir = process.cwd();
+  let fallback = '';
+  for (let i = 0; i < 5; i++) {
+    const candidate = resolve(dir, '.env');
+    if (existsSync(candidate)) {
+      // Prefer the .env that's at the monorepo root (has .env.example or workspaced package.json)
+      const hasExample = existsSync(resolve(dir, '.env.example'));
+      const pkgPath = resolve(dir, 'package.json');
+      const isMonoRoot = existsSync(pkgPath) &&
+        readFileSync(pkgPath, 'utf-8').includes('"workspaces"');
+      if (hasExample || isMonoRoot) return candidate;
+      if (!fallback) fallback = candidate;
+    }
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return fallback || resolve(process.cwd(), '.env');
+}
+
+// Canonical .env file location — overridable via ENV_FILE_PATH for Electron prod
+export const ENV_FILE_PATH = process.env.ENV_FILE_PATH || findEnvFile();
+
+// Auto-generate secure secrets on first run if still placeholder values
+function ensureSecrets() {
+  if (!existsSync(ENV_FILE_PATH)) return;
+
+  let content = readFileSync(ENV_FILE_PATH, 'utf-8');
+  let changed = false;
+
+  // Generate SESSION_SECRET if placeholder
+  if (/SESSION_SECRET=CHANGE-ME/.test(content) || !/SESSION_SECRET=.+/.test(content)) {
+    const secret = randomBytes(32).toString('base64');
+    if (/^SESSION_SECRET=.*$/m.test(content)) {
+      content = content.replace(/^SESSION_SECRET=.*$/m, `SESSION_SECRET=${secret}`);
+    } else {
+      content += `\nSESSION_SECRET=${secret}\n`;
+    }
+    process.env.SESSION_SECRET = secret;
+    changed = true;
+  }
+
+  // Generate ENCRYPTION_KEY if placeholder
+  if (/ENCRYPTION_KEY=CHANGE-ME/.test(content) || !/ENCRYPTION_KEY=.+/.test(content)) {
+    const key = randomBytes(32).toString('hex');
+    if (/^ENCRYPTION_KEY=.*$/m.test(content)) {
+      content = content.replace(/^ENCRYPTION_KEY=.*$/m, `ENCRYPTION_KEY=${key}`);
+    } else {
+      content += `\nENCRYPTION_KEY=${key}\n`;
+    }
+    process.env.ENCRYPTION_KEY = key;
+    changed = true;
+  }
+
+  if (changed) {
+    writeFileSync(ENV_FILE_PATH, content, 'utf-8');
+    console.log('🔑 Auto-generated secure secrets in .env');
+  }
+}
+
+ensureSecrets();
+config({ path: ENV_FILE_PATH });
 
 function requireEnv(key: string): string {
   const value = process.env[key];
