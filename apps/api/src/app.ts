@@ -6,6 +6,7 @@ import { env } from './config/env.js';
 import { authRoutes } from './routes/auth.js';
 import { accountRoutes } from './routes/accounts.js';
 import { postRoutes } from './routes/posts.js';
+import { settingsRoutes } from './routes/settings.js';
 
 export const app = express();
 
@@ -23,6 +24,7 @@ app.get('/health', (_req, res) => {
 app.use('/auth', authRoutes);
 app.use('/api/v1/accounts', accountRoutes);
 app.use('/api/v1/posts', postRoutes);
+app.use('/api/v1/settings', settingsRoutes);
 
 // Error handler
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
