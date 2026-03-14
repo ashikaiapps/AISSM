@@ -123,6 +123,77 @@ The packaged app bundles everything — API server, web frontend, SQLite — int
 
 *Instagram requires media (no text-only posts). YouTube and TikTok are video-only platforms.
 
+## Account Types Guide
+
+Each platform supports different account types with different capabilities:
+
+### LinkedIn
+| Account Type | Author URN | Scope Required | Approval |
+|---|---|---|---|
+| **Personal Profile** | `urn:li:person:{id}` | `w_member_social` | ✅ Instant |
+| **Company Page** | `urn:li:organization:{id}` | `w_organization_social` | ⏳ Marketing Developer Platform |
+
+- Personal profile posting works immediately with "Share on LinkedIn" product
+- Company Page posting requires applying for **Marketing Developer Platform** in the LinkedIn developer portal
+- After OAuth, the app discovers both your personal profile AND any Company Pages you admin
+- You must be a **Page Admin** to post as a Company Page
+- **Note:** Creating a LinkedIn developer app requires associating it with a LinkedIn Page — this is just a registration requirement and doesn't affect personal profile posting
+
+### Facebook
+| Account Type | How It Posts | Scope Required | Notes |
+|---|---|---|---|
+| **Facebook Page** | As the Page itself | `pages_manage_posts` | Requires Page admin role |
+| **Personal Profile** | ❌ Not supported | — | Facebook deprecated personal profile posting via API in 2024 |
+
+- Facebook **only supports Page posting** through the API — personal profile posting was removed
+- After OAuth, the app discovers all Pages you manage and lets you select which to connect
+- Each Page gets its own long-lived access token (~60 days, auto-refreshable)
+- You must be a **Page Admin** or **Editor** for the Page
+
+### Instagram
+| Account Type | How It Posts | Scope Required | Notes |
+|---|---|---|---|
+| **Business Account** | Container-based publish | `instagram_basic`, `instagram_content_publish` | Must be linked to a Facebook Page |
+| **Creator Account** | Container-based publish | Same | Must be linked to a Facebook Page |
+| **Personal Account** | ❌ Not supported | — | Must convert to Business or Creator |
+
+- Instagram accounts must be **Business** or **Creator** type (convert in Instagram settings → Account → Switch to Professional Account)
+- Must be **linked to a Facebook Page** (Instagram settings → Linked Accounts)
+- Uses same Meta OAuth as Facebook — one login discovers both Facebook Pages and Instagram accounts
+- Container-based 2-step publish: create media container → wait for processing → publish
+- Supports images and Reels (video)
+
+### YouTube
+| Account Type | How It Posts | Scope Required | Notes |
+|---|---|---|---|
+| **YouTube Channel** | Video upload (Shorts) | `youtube.upload` | Works in test mode (100 users) |
+
+- Posts are **video-only** (YouTube Shorts = vertical ≤60s with #Shorts)
+- Resumable upload API — works with large files
+- Test mode: limited to 100 authorized users (no approval needed)
+- Production: requires Google API compliance review
+- 10,000 quota units/day (1 upload ≈ 1,600 units)
+
+### TikTok
+| Account Type | How It Posts | Scope Required | Notes |
+|---|---|---|---|
+| **TikTok Account** | FILE_UPLOAD (video) | `video.publish` | Unaudited = SELF_ONLY drafts |
+
+- Posts are **video-only**
+- Unaudited apps can only post as `SELF_ONLY` (visible only to you / drafts)
+- Full public posting requires **TikTok audit** (2-6 weeks)
+- Uses FILE_UPLOAD method (works locally, unlike PULL_FROM_URL)
+- `client_key` (not `client_id`) in TikTok's API
+
+### Threads (Coming Soon)
+| Account Type | How It Posts | Scope Required | Notes |
+|---|---|---|---|
+| **Threads Profile** | Text + media posts | `threads_basic`, `threads_content_publish` | Uses Meta OAuth |
+
+- Threads API launched in 2024 — uses the same Meta developer app as Facebook/Instagram
+- Supports text posts, images, videos, carousels, and link posts
+- Same OAuth flow as Instagram — just needs additional Threads scopes
+
 ## API Endpoints
 
 ### OAuth
@@ -156,6 +227,7 @@ The `docs/` folder contains the planning and specification documents generated d
 
 | Document | Description |
 |----------|-------------|
+| [`platform-account-types.md`](docs/platform-account-types.md) | **Account types guide** — Personal vs Page vs Business for each platform, rate limits |
 | [`plan-super-v2.md`](docs/plan-super-v2.md) | **Definitive spec** — Opus 4.6-reviewed merged plan with all critical fixes |
 | [`plan-super.md`](docs/plan-super.md) | Merged super plan synthesized from GPT-5.4 + Gemini 3 Pro outputs |
 | [`plan-assessment.md`](docs/plan-assessment.md) | Opus 4.6 critical review — 6 critical, 10 high, 11 medium findings |
@@ -179,8 +251,12 @@ The `docs/` folder contains the planning and specification documents generated d
 - [x] Drag & drop media upload
 - [x] Live post preview per platform
 - [x] Electron desktop app
-- [ ] Post scheduling engine
+- [x] LinkedIn personal + Company Page posting
+- [ ] Threads integration (Meta OAuth — same app)
+- [ ] InspirationFeed — track competitors, trending topics, Reddit/HN/news
+- [ ] Post scheduling engine (50+ posts/day across accounts)
 - [ ] AI content generation (GitHub Copilot SDK + Claude Opus 4.6)
+- [ ] Bulk composer — create multiple post variants from one inspiration
 - [ ] AI campaign planner
 - [ ] Analytics dashboard
 - [ ] Image generation (Azure DALL-E 3)

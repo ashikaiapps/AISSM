@@ -3,11 +3,31 @@ import { PlatformSetupModal } from '../components/PlatformSetupModal';
 import { ConnectWizard } from '../components/ConnectWizard';
 
 const PLATFORMS = [
-  { id: 'linkedin', name: 'LinkedIn', icon: '💼', color: 'bg-blue-600' },
-  { id: 'facebook', name: 'Facebook', icon: '📘', color: 'bg-blue-500' },
-  { id: 'instagram', name: 'Instagram', icon: '📸', color: 'bg-pink-500' },
-  { id: 'youtube', name: 'YouTube', icon: '🎬', color: 'bg-red-600' },
-  { id: 'tiktok', name: 'TikTok', icon: '🎵', color: 'bg-gray-900' },
+  {
+    id: 'linkedin', name: 'LinkedIn', icon: '💼', color: 'bg-blue-600',
+    accountTypes: 'Personal Profile + Company Pages',
+    note: 'Personal posts instantly. Company Pages need Marketing Developer Platform.',
+  },
+  {
+    id: 'facebook', name: 'Facebook', icon: '📘', color: 'bg-blue-500',
+    accountTypes: 'Pages only (API)',
+    note: 'Personal profile posting not available via API. Connect your Pages.',
+  },
+  {
+    id: 'instagram', name: 'Instagram', icon: '📸', color: 'bg-pink-500',
+    accountTypes: 'Business & Creator accounts',
+    note: 'Must be Professional account linked to a Facebook Page.',
+  },
+  {
+    id: 'youtube', name: 'YouTube', icon: '🎬', color: 'bg-red-600',
+    accountTypes: 'YouTube Channels (Shorts)',
+    note: 'Video-only. Test mode: 100 users, no approval needed.',
+  },
+  {
+    id: 'tiktok', name: 'TikTok', icon: '🎵', color: 'bg-gray-900',
+    accountTypes: 'TikTok accounts (video)',
+    note: 'Video-only. Unaudited apps post as drafts (SELF_ONLY).',
+  },
 ];
 
 interface Account {
@@ -16,6 +36,7 @@ interface Account {
   accountName: string;
   handle?: string;
   avatarUrl?: string;
+  accountType?: string;
   isActive: boolean;
 }
 
@@ -115,7 +136,7 @@ export function AccountsPage() {
           const connected = accounts.filter(a => a.platform === platform.id);
           return (
             <div key={platform.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center gap-3 mb-4">
+              <div className="flex items-center gap-3 mb-2">
                 <span className="text-2xl">{platform.icon}</span>
                 <div>
                   <h3 className="text-lg font-semibold">{platform.name}</h3>
@@ -123,6 +144,10 @@ export function AccountsPage() {
                     <span className="text-xs text-green-600 font-medium">{connected.length} connected</span>
                   )}
                 </div>
+              </div>
+              <div className="mb-4">
+                <p className="text-xs font-medium text-indigo-600">{platform.accountTypes}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{platform.note}</p>
               </div>
 
               {connected.length > 0 ? (
@@ -136,6 +161,15 @@ export function AccountsPage() {
                           <span className="w-2 h-2 rounded-full bg-green-500 flex-shrink-0"></span>
                         )}
                         <span className="text-sm font-medium truncate">{acc.accountName}</span>
+                        {acc.accountType && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                            acc.accountType === 'profile' ? 'bg-blue-100 text-blue-700' :
+                            acc.accountType === 'page' ? 'bg-purple-100 text-purple-700' :
+                            acc.accountType === 'business' ? 'bg-pink-100 text-pink-700' :
+                            acc.accountType === 'channel' ? 'bg-red-100 text-red-700' :
+                            'bg-gray-100 text-gray-600'
+                          }`}>{acc.accountType}</span>
+                        )}
                         {acc.handle && <span className="text-xs text-gray-400 truncate">@{acc.handle}</span>}
                       </div>
                       <button
