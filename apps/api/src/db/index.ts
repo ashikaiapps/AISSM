@@ -5,8 +5,11 @@ import { env } from '../config/env.js';
 import * as schema from './schema.js';
 import { resolve, dirname } from 'path';
 import { mkdirSync } from 'fs';
+import { ENV_FILE_PATH } from '../config/env.js';
 
-const dbPath = resolve(process.cwd(), env.DATABASE_URL);
+// Resolve DB path relative to monorepo root (where .env lives), not CWD
+const monorepoRoot = dirname(ENV_FILE_PATH);
+const dbPath = resolve(monorepoRoot, env.DATABASE_URL);
 mkdirSync(dirname(dbPath), { recursive: true });
 
 const sqlite = new Database(dbPath);

@@ -1,6 +1,7 @@
 import { app } from './app.js';
 import { env } from './config/env.js';
 import { seedDefaultUser } from './db/index.js';
+import { startInspirationWorker } from './services/inspiration-worker.js';
 
 // Validate secrets in non-test environments
 if (env.NODE_ENV !== 'test') {
@@ -22,4 +23,5 @@ try {
 app.listen(env.PORT, () => {
   console.log(`🚀 SocialKeys API running at ${env.API_URL}`);
   console.log(`   Environment: ${env.NODE_ENV}`);
+  startInspirationWorker();
 });

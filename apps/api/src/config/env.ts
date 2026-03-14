@@ -119,5 +119,9 @@ export const env = {
   TIKTOK_CLIENT_SECRET: process.env.TIKTOK_CLIENT_SECRET || '',
   TIKTOK_REDIRECT_URI: process.env.TIKTOK_REDIRECT_URI || 'http://localhost:3001/auth/callback/tiktok',
 
+  // InspirationFeed
+  YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY || '',
+  PRODUCT_HUNT_TOKEN: process.env.PRODUCT_HUNT_TOKEN || '',
+
   validateSecrets,
 };

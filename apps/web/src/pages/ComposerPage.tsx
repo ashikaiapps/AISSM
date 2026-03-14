@@ -33,12 +33,28 @@ export function ComposerPage() {
   const [publishing, setPublishing] = useState(false);
   const [result, setResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [showPreview, setShowPreview] = useState(true);
+  const [draftSource, setDraftSource] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/v1/accounts')
       .then(r => r.json())
       .then(data => setAccounts(data.accounts || []))
       .catch(console.error);
+
+    // Check for draftId query param
+    const params = new URLSearchParams(window.location.search);
+    const draftId = params.get('draftId');
+    if (draftId) {
+      fetch(`http://localhost:3001/api/v1/posts/${draftId}`)
+        .then(r => r.json())
+        .then(data => {
+          if (data.caption) {
+            setCaption(data.caption);
+            setDraftSource(data.sourceUrl || null);
+          }
+        })
+        .catch(console.error);
+    }
   }, []);
 
   const toggleAccount = (id: string) => {
@@ -126,6 +142,25 @@ export function ComposerPage() {
   return (
     <div className="max-w-6xl">
       <h2 className="text-2xl font-bold mb-6">New Post</h2>
+
+      {draftSource && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span>📝</span>
+            <span className="text-sm font-medium text-indigo-800">
+              Draft from InspirationFeed
+            </span>
+          </div>
+          <a
+            href={draftSource}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-indigo-600 hover:underline"
+          >
+            View source →
+          </a>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Caption + media */}

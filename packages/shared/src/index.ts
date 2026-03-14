@@ -57,3 +57,79 @@ export const PLATFORM_LIMITS: Record<Platform, { maxCaptionLength: number; maxMe
   youtube: { maxCaptionLength: 5000, maxMediaCount: 1, supportedMediaTypes: ['video/mp4', 'video/quicktime'] },
   tiktok: { maxCaptionLength: 2200, maxMediaCount: 1, supportedMediaTypes: ['video/mp4', 'video/quicktime'] },
 };
+
+// ─── Inspiration Feed Types ────────────────────────────────────────
+
+export type InspirationSourceType = 'reddit' | 'hackernews' | 'rss' | 'youtube' | 'producthunt';
+
+export type InspirationItemStatus = 'unread' | 'read' | 'saved' | 'used' | 'dismissed';
+
+export interface InspirationSource {
+  id: string;
+  type: InspirationSourceType;
+  name: string;
+  config: Record<string, unknown>;
+  isActive: boolean;
+  lastFetchedAt: string | null;
+  fetchIntervalMinutes: number;
+  errorCount: number;
+  lastError: string | null;
+  createdAt: string;
+}
+
+export interface InspirationItem {
+  id: string;
+  sourceId: string;
+  type: InspirationSourceType;
+  externalId: string;
+  title: string;
+  body?: string;
+  url: string;
+  authorName?: string;
+  authorUrl?: string;
+  thumbnailUrl?: string;
+  score?: number;
+  commentCount?: number;
+  publishedAt?: string;
+  metadata: Record<string, unknown>;
+  status: InspirationItemStatus;
+  isSaved: boolean;
+  notes?: string;
+  draftPostId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InspirationItemWithSource extends InspirationItem {
+  sourceName: string;
+}
+
+export interface FeedStats {
+  totalItems: number;
+  unreadCount: number;
+  savedCount: number;
+  usedCount: number;
+  bySource: Array<{ sourceId: string; sourceName: string; type: InspirationSourceType; count: number }>;
+  todayCount: number;
+}
+
+export const INSPIRATION_SOURCE_LIMITS: Record<InspirationSourceType, {
+  maxSources: number;
+  minFetchIntervalMinutes: number;
+  defaultFetchIntervalMinutes: number;
+  maxItemsPerFetch: number;
+}> = {
+  reddit:      { maxSources: 10, minFetchIntervalMinutes: 15, defaultFetchIntervalMinutes: 30, maxItemsPerFetch: 50 },
+  hackernews:  { maxSources: 3,  minFetchIntervalMinutes: 15, defaultFetchIntervalMinutes: 30, maxItemsPerFetch: 30 },
+  rss:         { maxSources: 20, minFetchIntervalMinutes: 15, defaultFetchIntervalMinutes: 60, maxItemsPerFetch: 30 },
+  youtube:     { maxSources: 10, minFetchIntervalMinutes: 60, defaultFetchIntervalMinutes: 120, maxItemsPerFetch: 15 },
+  producthunt: { maxSources: 5,  minFetchIntervalMinutes: 60, defaultFetchIntervalMinutes: 360, maxItemsPerFetch: 20 },
+};
+
+export const INSPIRATION_SOURCE_ICONS: Record<InspirationSourceType, string> = {
+  reddit: '🔴',
+  hackernews: '🟠',
+  rss: '🟡',
+  youtube: '🔵',
+  producthunt: '🟤',
+};
